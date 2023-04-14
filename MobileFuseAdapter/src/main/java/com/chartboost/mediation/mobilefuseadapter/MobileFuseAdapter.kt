@@ -9,7 +9,6 @@ package com.chartboost.mediation.mobilefuseadapter
 
 import android.content.Context
 import android.util.Size
-import android.view.View.GONE
 import com.chartboost.heliumsdk.domain.*
 import com.chartboost.heliumsdk.domain.ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
 import com.chartboost.heliumsdk.utils.PartnerLogController
@@ -29,6 +28,24 @@ import kotlin.coroutines.resume
 
 class MobileFuseAdapter : PartnerAdapter {
     companion object {
+        /**
+         * Test mode flag that can optionally be set to true to enable test ads. It can be set at any
+         * time and it will take effect for the next ad request. Remember to set this to false in
+         * production.
+         */
+        var testMode = false
+            set(value) {
+                field = value
+                MobileFuseSettings.setTestMode(value)
+                PartnerLogController.log(
+                    CUSTOM,
+                    "MobileFuse test mode is ${
+                        if (value) "enabled. Remember to disable it before publishing."
+                        else "disabled."
+                    }"
+                )
+            }
+
         /**
          * The MobileFuse bidding token key.
          */
@@ -85,7 +102,7 @@ class MobileFuseAdapter : PartnerAdapter {
         get() = "MobileFuse"
 
     /**
-     * Initialize the Google Mobile Ads SDK so that it is ready to request ads.
+     * Initialize the MobileFuse SDK so that it is ready to request ads.
      *
      * @param context The current [Context].
      * @param partnerConfiguration Configuration object containing relevant data to initialize MobileFuse.
@@ -103,7 +120,7 @@ class MobileFuseAdapter : PartnerAdapter {
     }
 
     /**
-     * Notify the Google Mobile Ads SDK of the GDPR applicability and consent status.
+     * Notify the MobileFuse SDK of the GDPR applicability and consent status.
      *
      * @param context The current [Context].
      * @param applies True if GDPR applies, false otherwise.
@@ -209,7 +226,7 @@ class MobileFuseAdapter : PartnerAdapter {
             MobileFuseBiddingTokenProvider.getToken(
                 MobileFuseBiddingTokenRequest(
                     privacyPreferences = privacyBuilder.build(),
-                    isTestMode = false
+                    isTestMode = testMode
                 ),
                 context,
                 listener
@@ -275,22 +292,18 @@ class MobileFuseAdapter : PartnerAdapter {
                     Result.success(partnerAd)
                 }
                 AdFormat.INTERSTITIAL -> {
-                    showInterstitialAd(partnerAd)
-
                     onInterstitialAdShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
                         continuation.resume(Result.success(partnerAd))
                     }
-                    null
+                    showInterstitialAd(partnerAd)
                 }
                 AdFormat.REWARDED -> {
-                    showRewardedAd(partnerAd)
-
                     onRewardedAdShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
                         continuation.resume(Result.success(partnerAd))
                     }
-                    null
+                    showRewardedAd(partnerAd)
                 }
                 else -> {
                     Result.failure(
@@ -301,7 +314,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 }
             }
 
-            if (result != null && continuation.isActive) {
+            if (continuation.isActive) {
                 continuation.resume(result)
             }
         }
@@ -702,7 +715,6 @@ class MobileFuseAdapter : PartnerAdapter {
                 Result.success(partnerAd)
             }
             is MobileFuseBannerAd -> {
-                bannerAd.visibility = GONE
                 bannerAd.destroy()
 
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
