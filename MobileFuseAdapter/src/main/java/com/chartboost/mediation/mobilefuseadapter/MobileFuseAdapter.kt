@@ -168,7 +168,7 @@ class MobileFuseAdapter : PartnerAdapter {
             else CCPA_CONSENT_DENIED
         )
 
-        // Consent setting is a NO-OP as MobileFuse does not provide an for CCPA per
+        // Consent setting is a NO-OP as MobileFuse does not provide an API for CCPA per
         // https://docs.mobilefuse.com/docs/android-sdk-data-privacy
     }
 
@@ -218,7 +218,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 }
 
                 override fun onTokenGenerationFailed(error: String) {
-                    PartnerLogController.log(BIDDER_INFO_FETCH_FAILED)
+                    PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, error)
                     resumeOnce(emptyMap())
                 }
             }
@@ -256,16 +256,19 @@ class MobileFuseAdapter : PartnerAdapter {
                 request,
                 partnerAdListener
             )
+
             AdFormat.REWARDED -> loadRewardedAd(
                 context,
                 request,
                 partnerAdListener
             )
+
             AdFormat.BANNER -> loadBannerAd(
                 context,
                 request,
                 partnerAdListener
             )
+
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -291,20 +294,21 @@ class MobileFuseAdapter : PartnerAdapter {
                     PartnerLogController.log(SHOW_SUCCEEDED)
                     Result.success(partnerAd)
                 }
-                AdFormat.INTERSTITIAL -> {
+
+                AdFormat.INTERSTITIAL, AdFormat.REWARDED -> {
                     onInterstitialAdShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
                         continuation.resume(Result.success(partnerAd))
                     }
-                    showInterstitialAd(partnerAd)
-                }
-                AdFormat.REWARDED -> {
+
                     onRewardedAdShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
                         continuation.resume(Result.success(partnerAd))
                     }
-                    showRewardedAd(partnerAd)
+
+                    showFullscreenAd(partnerAd)
                 }
+
                 else -> {
                     Result.failure(
                         ChartboostMediationAdException(
@@ -465,7 +469,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     Result.success(
                         PartnerAd(
                             ad = interstitialAd,
-                            details = Collections.emptyMap(),
+                            details = emptyMap(),
                             request = request
                         )
                     )
@@ -638,63 +642,38 @@ class MobileFuseAdapter : PartnerAdapter {
     }
 
     /**
-     * Attempt to show a MobileFuse interstitial ad.
+     * Attempt to show a MobileFuse fullscreen ad.
      *
      * @param partnerAd The [PartnerAd] object containing the MobileFuse ad to be shown.
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    private fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        return when (val interstitialAd = partnerAd.ad) {
-            null -> {
-                PartnerLogController.log(SHOW_FAILED, "Ad is null.")
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_FOUND))
-            }
-            is MobileFuseInterstitialAd -> {
-                if (interstitialAd.isLoaded) {
-                    interstitialAd.showAd()
-                    Result.success(partnerAd)
-                } else {
-                    PartnerLogController.log(SHOW_FAILED, "Ad is not ready.")
-                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_READY))
-                }
-            }
-            else -> {
-                PartnerLogController.log(
-                    SHOW_FAILED,
-                    "Ad is not an instance of MobileFuseInterstitialAd."
-                )
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
+    private fun showFullscreenAd(
+        partnerAd: PartnerAd,
+    ): Result<PartnerAd> {
+        fun showAdIfLoaded(isLoaded: () -> Boolean, showAd: () -> Unit): Result<PartnerAd> {
+            return if (isLoaded()) {
+                showAd()
+                Result.success(partnerAd)
+            } else {
+                PartnerLogController.log(SHOW_FAILED)
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_READY))
             }
         }
-    }
 
-    /**
-     * Attempt to show a MobileFuse rewarded ad.
-     *
-     * @param partnerAd The [PartnerAd] object containing the MobileFuse ad to be shown.
-     *
-     * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
-     */
-    private fun showRewardedAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        return when (val rewardedAd = partnerAd.ad) {
+        return when (val ad = partnerAd.ad) {
             null -> {
                 PartnerLogController.log(SHOW_FAILED, "Ad is null.")
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_FOUND))
             }
-            is MobileFuseRewardedAd -> {
-                if (rewardedAd.isLoaded) {
-                    rewardedAd.showAd()
-                    Result.success(partnerAd)
-                } else {
-                    PartnerLogController.log(SHOW_FAILED, "Ad is not ready.")
-                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_READY))
-                }
-            }
+
+            is MobileFuseInterstitialAd -> showAdIfLoaded(ad::isLoaded, ad::showAd)
+            is MobileFuseRewardedAd -> showAdIfLoaded(ad::isLoaded, ad::showAd)
+
             else -> {
                 PartnerLogController.log(
                     SHOW_FAILED,
-                    "Ad is not an instance of MobileFuseRewardedAd."
+                    "Ad is not an instance of MobileFuseInterstitialAd or MobileFuseRewardedAd."
                 )
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
             }
@@ -714,12 +693,14 @@ class MobileFuseAdapter : PartnerAdapter {
                 PartnerLogController.log(INVALIDATE_SUCCEEDED, "Ad is already null.")
                 Result.success(partnerAd)
             }
+
             is MobileFuseBannerAd -> {
                 bannerAd.destroy()
 
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
             }
+
             else -> {
                 PartnerLogController.log(INVALIDATE_FAILED, "Ad is not an MobileFuseBannerAd.")
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_WRONG_RESOURCE_TYPE))
