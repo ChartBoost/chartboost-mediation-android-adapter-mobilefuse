@@ -49,7 +49,7 @@ class MobileFuseAdapter : PartnerAdapter {
         /**
          * The MobileFuse bidding token key.
          */
-        private const val TOKEN_KEY = "token"
+        private const val TOKEN_KEY = "signal"
     }
 
     /**
@@ -288,6 +288,12 @@ class MobileFuseAdapter : PartnerAdapter {
         PartnerLogController.log(SHOW_STARTED)
 
         return suspendCancellableCoroutine { continuation ->
+            fun resumeOnce(result: Result<PartnerAd>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
+            }
+
             val result = when (partnerAd.request.format) {
                 AdFormat.BANNER -> {
                     // Banner ads do not have a separate "show" mechanism.
@@ -298,12 +304,12 @@ class MobileFuseAdapter : PartnerAdapter {
                 AdFormat.INTERSTITIAL, AdFormat.REWARDED -> {
                     onInterstitialAdShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
-                        continuation.resume(Result.success(partnerAd))
+                        resumeOnce(Result.success(partnerAd))
                     }
 
                     onRewardedAdShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
-                        continuation.resume(Result.success(partnerAd))
+                        resumeOnce(Result.success(partnerAd))
                     }
 
                     showFullscreenAd(partnerAd)
