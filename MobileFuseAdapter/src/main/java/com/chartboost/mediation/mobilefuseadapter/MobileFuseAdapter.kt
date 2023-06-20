@@ -324,9 +324,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 }
             }
 
-            if (continuation.isActive) {
-                continuation.resume(result)
-            }
+            resumeOnce(result)
         }
     }
 
