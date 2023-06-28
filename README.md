@@ -1,6 +1,6 @@
-# Chartboost Mediation {Partner} Adapter
+# Chartboost Mediation MobileFuse Adapter
 
-The Chartboost Mediation {Partner} adapter mediates {Partner} via the Chartboost Mediation SDK.
+The Chartboost Mediation MobileFuse adapter mediates MobileFuse SDK Core via the Chartboost Mediation SDK.
 
 ## Minimum Requirements
 
@@ -13,7 +13,7 @@ The Chartboost Mediation {Partner} adapter mediates {Partner} via the Chartboost
 
 In your `build.gradle`, add the following entry:
 ```
-    implementation "com.chartboost:chartboost-mediation-adapter-{partner}:{adapter-version}"
+    implementation "com.chartboost:chartboost-mediation-adapter-mobilefuse:4.1.4.4.0"
 ```
 
 ## Contributions
