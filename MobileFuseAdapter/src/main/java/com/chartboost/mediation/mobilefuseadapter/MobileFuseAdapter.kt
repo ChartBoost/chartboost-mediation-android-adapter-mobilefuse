@@ -271,6 +271,7 @@ class MobileFuseAdapter : PartnerAdapter {
 
             else -> {
                 if (request.format.key == "rewarded_interstitial") {
+                    // MobileFuse does not have a specific rewarded interstitial class.
                     loadRewardedAd(
                         context,
                         request,
