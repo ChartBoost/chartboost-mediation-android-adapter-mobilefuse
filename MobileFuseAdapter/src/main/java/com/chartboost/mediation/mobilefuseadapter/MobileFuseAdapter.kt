@@ -128,7 +128,12 @@ class MobileFuseAdapter : PartnerAdapter {
                 }
 
                 override fun onInitError() {
-                    resumeOnce(Result.success(PartnerLogController.log(SETUP_FAILED)))
+PartnerLogController.log(SETUP_FAILED)
+resumeOnce(
+    Result.failure(
+        ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN)
+    )
+)
                 }
 
             })
