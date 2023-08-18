@@ -115,8 +115,28 @@ class MobileFuseAdapter : PartnerAdapter {
     ): Result<Unit> {
         PartnerLogController.log(SETUP_STARTED)
 
-        MobileFuse.initSdkServices(context)
-        return Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
+        return suspendCancellableCoroutine { continuation ->
+            fun resumeOnce(result: Result<Unit>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
+            }
+
+            MobileFuse.init(object : SdkInitListener {
+                override fun onInitSuccess() {
+                    resumeOnce(Result.success(PartnerLogController.log(SETUP_SUCCEEDED)))
+                }
+
+                override fun onInitError() {
+                    PartnerLogController.log(SETUP_FAILED)
+                    resumeOnce(
+                        Result.failure(
+                            ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN)
+                        )
+                    )
+                }
+            })
+        }
     }
 
     /**
