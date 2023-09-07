@@ -283,7 +283,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 partnerAdListener
             )
 
-            AdFormat.BANNER -> loadBannerAd(
+            AdFormat.BANNER, AdFormat.ADAPTIVE_BANNER -> loadBannerAd(
                 context,
                 request,
                 partnerAdListener
@@ -324,7 +324,7 @@ class MobileFuseAdapter : PartnerAdapter {
             }
 
             val result = when (partnerAd.request.format) {
-                AdFormat.BANNER -> {
+                AdFormat.BANNER, AdFormat.ADAPTIVE_BANNER -> {
                     // Banner ads do not have a separate "show" mechanism.
                     PartnerLogController.log(SHOW_SUCCEEDED)
                     Result.success(partnerAd)
@@ -370,7 +370,7 @@ class MobileFuseAdapter : PartnerAdapter {
 
         // Only invalidate banners as there are no explicit methods to invalidate the other formats.
         return when (partnerAd.request.format) {
-            AdFormat.BANNER -> destroyBannerAd(partnerAd)
+            AdFormat.BANNER, AdFormat.ADAPTIVE_BANNER -> destroyBannerAd(partnerAd)
             else -> {
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
