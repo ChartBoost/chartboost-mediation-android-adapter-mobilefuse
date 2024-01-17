@@ -40,9 +40,12 @@ class MobileFuseAdapter : PartnerAdapter {
                 PartnerLogController.log(
                     CUSTOM,
                     "MobileFuse test mode is ${
-                        if (value) "enabled. Remember to disable it before publishing."
-                        else "disabled."
-                    }"
+                        if (value) {
+                            "enabled. Remember to disable it before publishing."
+                        } else {
+                            "disabled."
+                        }
+                    }",
                 )
             }
 
@@ -85,8 +88,7 @@ class MobileFuseAdapter : PartnerAdapter {
      * "Partner" represents the partner SDK’s major.minor.patch.x (where x is optional) version that is compatible with this adapter. This can be 3-4 digits.
      * "Adapter" represents this adapter’s version (starting with 0), which resets to 0 when the partner SDK’s version changes. This must be 1 digit.
      */
-    override
-    val adapterVersion: String
+    override val adapterVersion: String
         get() = BuildConfig.CHARTBOOST_MEDIATION_MOBILEFUSE_ADAPTER_VERSION
 
     /**
@@ -111,7 +113,7 @@ class MobileFuseAdapter : PartnerAdapter {
      */
     override suspend fun setUp(
         context: Context,
-        partnerConfiguration: PartnerConfiguration
+        partnerConfiguration: PartnerConfiguration,
     ): Result<Unit> {
         PartnerLogController.log(SETUP_STARTED)
 
@@ -122,20 +124,22 @@ class MobileFuseAdapter : PartnerAdapter {
                 }
             }
 
-            MobileFuse.init(object : SdkInitListener {
-                override fun onInitSuccess() {
-                    resumeOnce(Result.success(PartnerLogController.log(SETUP_SUCCEEDED)))
-                }
+            MobileFuse.init(
+                object : SdkInitListener {
+                    override fun onInitSuccess() {
+                        resumeOnce(Result.success(PartnerLogController.log(SETUP_SUCCEEDED)))
+                    }
 
-                override fun onInitError() {
-                    PartnerLogController.log(SETUP_FAILED)
-                    resumeOnce(
-                        Result.failure(
-                            ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN)
+                    override fun onInitError() {
+                        PartnerLogController.log(SETUP_FAILED)
+                        resumeOnce(
+                            Result.failure(
+                                ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN),
+                            ),
                         )
-                    )
-                }
-            })
+                    }
+                },
+            )
         }
     }
 
@@ -149,14 +153,14 @@ class MobileFuseAdapter : PartnerAdapter {
     override fun setGdpr(
         context: Context,
         applies: Boolean?,
-        gdprConsentStatus: GdprConsentStatus
+        gdprConsentStatus: GdprConsentStatus,
     ) {
         PartnerLogController.log(
             when (applies) {
                 true -> GDPR_APPLICABLE
                 false -> GDPR_NOT_APPLICABLE
                 else -> GDPR_UNKNOWN
-            }
+            },
         )
 
         PartnerLogController.log(
@@ -164,7 +168,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> GDPR_CONSENT_UNKNOWN
                 GdprConsentStatus.GDPR_CONSENT_GRANTED -> GDPR_CONSENT_GRANTED
                 GdprConsentStatus.GDPR_CONSENT_DENIED -> GDPR_CONSENT_DENIED
-            }
+            },
         )
 
         // Consent setting is a NO-OP as Chartboost Mediation does not support an IAB-compatible privacy consent string
@@ -181,11 +185,14 @@ class MobileFuseAdapter : PartnerAdapter {
     override fun setCcpaConsent(
         context: Context,
         hasGrantedCcpaConsent: Boolean,
-        privacyString: String
+        privacyString: String,
     ) {
         PartnerLogController.log(
-            if (hasGrantedCcpaConsent) CCPA_CONSENT_GRANTED
-            else CCPA_CONSENT_DENIED
+            if (hasGrantedCcpaConsent) {
+                CCPA_CONSENT_GRANTED
+            } else {
+                CCPA_CONSENT_DENIED
+            },
         )
 
         // Consent setting is a NO-OP as MobileFuse does not provide an API for CCPA per
@@ -198,15 +205,21 @@ class MobileFuseAdapter : PartnerAdapter {
      * @param context The current [Context].
      * @param isSubjectToCoppa True if the user is subject to COPPA, false otherwise.
      */
-    override fun setUserSubjectToCoppa(context: Context, isSubjectToCoppa: Boolean) {
+    override fun setUserSubjectToCoppa(
+        context: Context,
+        isSubjectToCoppa: Boolean,
+    ) {
         PartnerLogController.log(
-            if (isSubjectToCoppa) COPPA_SUBJECT
-            else COPPA_NOT_SUBJECT
+            if (isSubjectToCoppa) {
+                COPPA_SUBJECT
+            } else {
+                COPPA_NOT_SUBJECT
+            },
         )
 
         MobileFuse.setPrivacyPreferences(
             privacyBuilder.setSubjectToCoppa(isSubjectToCoppa)
-                .build()
+                .build(),
         )
     }
 
@@ -220,7 +233,7 @@ class MobileFuseAdapter : PartnerAdapter {
      */
     override suspend fun fetchBidderInformation(
         context: Context,
-        request: PreBidRequest
+        request: PreBidRequest,
     ): Map<String, String> {
         PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
 
@@ -231,25 +244,26 @@ class MobileFuseAdapter : PartnerAdapter {
                 }
             }
 
-            val listener = object : TokenGeneratorListener {
-                override fun onTokenGenerated(token: String) {
-                    PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
-                    resumeOnce(mapOf(TOKEN_KEY to token))
-                }
+            val listener =
+                object : TokenGeneratorListener {
+                    override fun onTokenGenerated(token: String) {
+                        PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
+                        resumeOnce(mapOf(TOKEN_KEY to token))
+                    }
 
-                override fun onTokenGenerationFailed(error: String) {
-                    PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, error)
-                    resumeOnce(emptyMap())
+                    override fun onTokenGenerationFailed(error: String) {
+                        PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, error)
+                        resumeOnce(emptyMap())
+                    }
                 }
-            }
 
             MobileFuseBiddingTokenProvider.getToken(
                 MobileFuseBiddingTokenRequest(
                     privacyPreferences = privacyBuilder.build(),
-                    isTestMode = testMode
+                    isTestMode = testMode,
                 ),
                 context,
-                listener
+                listener,
             )
         }
     }
@@ -266,28 +280,31 @@ class MobileFuseAdapter : PartnerAdapter {
     override suspend fun load(
         context: Context,
         request: PartnerAdLoadRequest,
-        partnerAdListener: PartnerAdListener
+        partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
         PartnerLogController.log(LOAD_STARTED)
 
         return when (request.format.key) {
-            AdFormat.INTERSTITIAL.key -> loadInterstitialAd(
-                context,
-                request,
-                partnerAdListener
-            )
+            AdFormat.INTERSTITIAL.key ->
+                loadInterstitialAd(
+                    context,
+                    request,
+                    partnerAdListener,
+                )
 
-            AdFormat.REWARDED.key -> loadRewardedAd(
-                context,
-                request,
-                partnerAdListener
-            )
+            AdFormat.REWARDED.key ->
+                loadRewardedAd(
+                    context,
+                    request,
+                    partnerAdListener,
+                )
 
-            AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(
-                context,
-                request,
-                partnerAdListener
-            )
+            AdFormat.BANNER.key, "adaptive_banner" ->
+                loadBannerAd(
+                    context,
+                    request,
+                    partnerAdListener,
+                )
 
             else -> {
                 if (request.format.key == "rewarded_interstitial") {
@@ -295,7 +312,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     loadRewardedAd(
                         context,
                         request,
-                        partnerAdListener
+                        partnerAdListener,
                     )
                 } else {
                     PartnerLogController.log(LOAD_FAILED)
@@ -313,7 +330,10 @@ class MobileFuseAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    override suspend fun show(context: Context, partnerAd: PartnerAd): Result<PartnerAd> {
+    override suspend fun show(
+        context: Context,
+        partnerAd: PartnerAd,
+    ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
 
         return suspendCancellableCoroutine { continuation ->
@@ -323,36 +343,37 @@ class MobileFuseAdapter : PartnerAdapter {
                 }
             }
 
-            val result = when (partnerAd.request.format.key) {
-                AdFormat.BANNER.key, "adaptive_banner" -> {
-                    // Banner ads do not have a separate "show" mechanism.
-                    PartnerLogController.log(SHOW_SUCCEEDED)
-                    Result.success(partnerAd)
-                }
-
-                AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> {
-                    onInterstitialAdShowSuccess = {
+            val result =
+                when (partnerAd.request.format.key) {
+                    AdFormat.BANNER.key, "adaptive_banner" -> {
+                        // Banner ads do not have a separate "show" mechanism.
                         PartnerLogController.log(SHOW_SUCCEEDED)
-                        resumeOnce(Result.success(partnerAd))
+                        Result.success(partnerAd)
                     }
 
-                    onRewardedAdShowSuccess = {
-                        PartnerLogController.log(SHOW_SUCCEEDED)
-                        resumeOnce(Result.success(partnerAd))
-                    }
+                    AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> {
+                        onInterstitialAdShowSuccess = {
+                            PartnerLogController.log(SHOW_SUCCEEDED)
+                            resumeOnce(Result.success(partnerAd))
+                        }
 
-                    showFullscreenAd(partnerAd)
-                }
+                        onRewardedAdShowSuccess = {
+                            PartnerLogController.log(SHOW_SUCCEEDED)
+                            resumeOnce(Result.success(partnerAd))
+                        }
 
-                else -> {
-                    if (partnerAd.request.format.key == "rewarded_interstitial") {
                         showFullscreenAd(partnerAd)
-                    } else {
-                        PartnerLogController.log(SHOW_FAILED)
-                        Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
+                    }
+
+                    else -> {
+                        if (partnerAd.request.format.key == "rewarded_interstitial") {
+                            showFullscreenAd(partnerAd)
+                        } else {
+                            PartnerLogController.log(SHOW_FAILED)
+                            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
+                        }
                     }
                 }
-            }
 
             resumeOnce(result)
         }
@@ -390,71 +411,76 @@ class MobileFuseAdapter : PartnerAdapter {
     private suspend fun loadBannerAd(
         context: Context,
         request: PartnerAdLoadRequest,
-        listener: PartnerAdListener
-    ): Result<PartnerAd> = suspendCancellableCoroutine { continuation ->
-        val bannerAd = MobileFuseBannerAd(
-            context,
-            request.partnerPlacement,
-            getMobileFuseBannerAdSize(request.size)
-        )
-
-        val partnerAd = PartnerAd(
-            ad = bannerAd,
-            details = emptyMap(),
-            request = request,
-        )
-
-        fun resumeOnce(result: Result<PartnerAd>) {
-            if (continuation.isActive) {
-                continuation.resume(result)
-            }
-        }
-
-        bannerAd.setListener(object : Listener {
-            override fun onAdExpanded() {
-                PartnerLogController.log(CUSTOM, "onAdExpanded")
-            }
-
-            override fun onAdCollapsed() {
-                PartnerLogController.log(CUSTOM, "onAdCollapsed")
-            }
-
-            override fun onAdLoaded() {
-                PartnerLogController.log(LOAD_SUCCEEDED)
-                resumeOnce(Result.success(partnerAd))
-            }
-
-            override fun onAdNotFilled() {
-                PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
-                resumeOnce(Result.failure(ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL)))
-            }
-
-            override fun onAdRendered() {
-                PartnerLogController.log(CUSTOM, "onAdRendered")
-            }
-
-            override fun onAdClicked() {
-                PartnerLogController.log(DID_CLICK)
-                listener.onPartnerAdClicked(partnerAd)
-            }
-
-            override fun onAdExpired() {
-                PartnerLogController.log(DID_EXPIRE)
-                listener.onPartnerAdExpired(partnerAd)
-            }
-
-            override fun onAdError(adError: AdError) {
-                PartnerLogController.log(LOAD_FAILED, adError.errorMessage)
-                resumeOnce(
-                    Result.failure(
-                        ChartboostMediationAdException(getChartboostMediationError(adError))
-                    )
+        listener: PartnerAdListener,
+    ): Result<PartnerAd> =
+        suspendCancellableCoroutine { continuation ->
+            val bannerAd =
+                MobileFuseBannerAd(
+                    context,
+                    request.partnerPlacement,
+                    getMobileFuseBannerAdSize(request.size),
                 )
-            }
-        })
 
-        bannerAd.loadAdFromBiddingToken(request.adm)
-    }
+            val partnerAd =
+                PartnerAd(
+                    ad = bannerAd,
+                    details = emptyMap(),
+                    request = request,
+                )
+
+            fun resumeOnce(result: Result<PartnerAd>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
+            }
+
+            bannerAd.setListener(
+                object : Listener {
+                    override fun onAdExpanded() {
+                        PartnerLogController.log(CUSTOM, "onAdExpanded")
+                    }
+
+                    override fun onAdCollapsed() {
+                        PartnerLogController.log(CUSTOM, "onAdCollapsed")
+                    }
+
+                    override fun onAdLoaded() {
+                        PartnerLogController.log(LOAD_SUCCEEDED)
+                        resumeOnce(Result.success(partnerAd))
+                    }
+
+                    override fun onAdNotFilled() {
+                        PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
+                        resumeOnce(Result.failure(ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL)))
+                    }
+
+                    override fun onAdRendered() {
+                        PartnerLogController.log(CUSTOM, "onAdRendered")
+                    }
+
+                    override fun onAdClicked() {
+                        PartnerLogController.log(DID_CLICK)
+                        listener.onPartnerAdClicked(partnerAd)
+                    }
+
+                    override fun onAdExpired() {
+                        PartnerLogController.log(DID_EXPIRE)
+                        listener.onPartnerAdExpired(partnerAd)
+                    }
+
+                    override fun onAdError(adError: AdError) {
+                        PartnerLogController.log(LOAD_FAILED, adError.errorMessage)
+                        resumeOnce(
+                            Result.failure(
+                                ChartboostMediationAdException(getChartboostMediationError(adError)),
+                            ),
+                        )
+                    }
+                },
+            )
+
+            bannerAd.loadAdFromBiddingToken(request.adm)
+        }
 
     /**
      * Find the most appropriate MobileFuse ad size for the given screen area based on height.
@@ -486,88 +512,92 @@ class MobileFuseAdapter : PartnerAdapter {
     private suspend fun loadInterstitialAd(
         context: Context,
         request: PartnerAdLoadRequest,
-        listener: PartnerAdListener
-    ): Result<PartnerAd> = suspendCancellableCoroutine { continuation ->
-        val interstitialAd = MobileFuseInterstitialAd(context, request.partnerPlacement)
+        listener: PartnerAdListener,
+    ): Result<PartnerAd> =
+        suspendCancellableCoroutine { continuation ->
+            val interstitialAd = MobileFuseInterstitialAd(context, request.partnerPlacement)
 
-        fun resumeOnce(result: Result<PartnerAd>) {
-            if (continuation.isActive) {
-                continuation.resume(result)
+            fun resumeOnce(result: Result<PartnerAd>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
             }
-        }
 
-        interstitialAd.setListener(object : MobileFuseInterstitialAd.Listener {
-            override fun onAdLoaded() {
-                PartnerLogController.log(LOAD_SUCCEEDED)
-                resumeOnce(
-                    Result.success(
-                        PartnerAd(
-                            ad = interstitialAd,
-                            details = emptyMap(),
-                            request = request
+            interstitialAd.setListener(
+                object : MobileFuseInterstitialAd.Listener {
+                    override fun onAdLoaded() {
+                        PartnerLogController.log(LOAD_SUCCEEDED)
+                        resumeOnce(
+                            Result.success(
+                                PartnerAd(
+                                    ad = interstitialAd,
+                                    details = emptyMap(),
+                                    request = request,
+                                ),
+                            ),
                         )
-                    )
-                )
-            }
+                    }
 
-            override fun onAdNotFilled() {
-                PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
-                resumeOnce(
-                    Result.failure(
-                        ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL)
-                    )
-                )
-            }
+                    override fun onAdNotFilled() {
+                        PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
+                        resumeOnce(
+                            Result.failure(
+                                ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL),
+                            ),
+                        )
+                    }
 
-            override fun onAdClosed() {
-                PartnerLogController.log(DID_DISMISS)
-                listener.onPartnerAdDismissed(
-                    PartnerAd(
-                        ad = interstitialAd,
-                        details = Collections.emptyMap(),
-                        request = request
-                    ), null
-                )
-            }
+                    override fun onAdClosed() {
+                        PartnerLogController.log(DID_DISMISS)
+                        listener.onPartnerAdDismissed(
+                            PartnerAd(
+                                ad = interstitialAd,
+                                details = Collections.emptyMap(),
+                                request = request,
+                            ),
+                            null,
+                        )
+                    }
 
-            override fun onAdRendered() {
-                onInterstitialAdShowSuccess()
-            }
+                    override fun onAdRendered() {
+                        onInterstitialAdShowSuccess()
+                    }
 
-            override fun onAdClicked() {
-                PartnerLogController.log(DID_CLICK)
-                listener.onPartnerAdClicked(
-                    PartnerAd(
-                        ad = interstitialAd,
-                        details = Collections.emptyMap(),
-                        request = request
-                    )
-                )
-            }
+                    override fun onAdClicked() {
+                        PartnerLogController.log(DID_CLICK)
+                        listener.onPartnerAdClicked(
+                            PartnerAd(
+                                ad = interstitialAd,
+                                details = Collections.emptyMap(),
+                                request = request,
+                            ),
+                        )
+                    }
 
-            override fun onAdExpired() {
-                PartnerLogController.log(DID_EXPIRE)
-                listener.onPartnerAdExpired(
-                    PartnerAd(
-                        ad = interstitialAd,
-                        details = Collections.emptyMap(),
-                        request = request,
-                    )
-                )
-            }
+                    override fun onAdExpired() {
+                        PartnerLogController.log(DID_EXPIRE)
+                        listener.onPartnerAdExpired(
+                            PartnerAd(
+                                ad = interstitialAd,
+                                details = Collections.emptyMap(),
+                                request = request,
+                            ),
+                        )
+                    }
 
-            override fun onAdError(error: AdError) {
-                PartnerLogController.log(LOAD_FAILED, error.errorMessage)
-                resumeOnce(
-                    Result.failure(
-                        ChartboostMediationAdException(getChartboostMediationError(error))
-                    )
-                )
-            }
-        })
+                    override fun onAdError(error: AdError) {
+                        PartnerLogController.log(LOAD_FAILED, error.errorMessage)
+                        resumeOnce(
+                            Result.failure(
+                                ChartboostMediationAdException(getChartboostMediationError(error)),
+                            ),
+                        )
+                    }
+                },
+            )
 
-        interstitialAd.loadAdFromBiddingToken(request.adm)
-    }
+            interstitialAd.loadAdFromBiddingToken(request.adm)
+        }
 
     /**
      * Attempt to load an MobileFuse rewarded ad.
@@ -581,99 +611,103 @@ class MobileFuseAdapter : PartnerAdapter {
     private suspend fun loadRewardedAd(
         context: Context,
         request: PartnerAdLoadRequest,
-        listener: PartnerAdListener
-    ): Result<PartnerAd> = suspendCancellableCoroutine { continuation ->
-        val rewardedAd = MobileFuseRewardedAd(context, request.partnerPlacement)
+        listener: PartnerAdListener,
+    ): Result<PartnerAd> =
+        suspendCancellableCoroutine { continuation ->
+            val rewardedAd = MobileFuseRewardedAd(context, request.partnerPlacement)
 
-        fun resumeOnce(result: Result<PartnerAd>) {
-            if (continuation.isActive) {
-                continuation.resume(result)
-            }
-        }
-
-        rewardedAd.setListener(object : MobileFuseRewardedAd.Listener {
-            override fun onUserEarnedReward() {
-                PartnerLogController.log(DID_REWARD)
-                listener.onPartnerAdRewarded(
-                    PartnerAd(
-                        ad = rewardedAd,
-                        details = Collections.emptyMap(),
-                        request = request
-                    )
-                )
+            fun resumeOnce(result: Result<PartnerAd>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
             }
 
-            override fun onAdLoaded() {
-                PartnerLogController.log(LOAD_SUCCEEDED)
-                resumeOnce(
-                    Result.success(
-                        PartnerAd(
-                            ad = rewardedAd,
-                            details = Collections.emptyMap(),
-                            request = request
+            rewardedAd.setListener(
+                object : MobileFuseRewardedAd.Listener {
+                    override fun onUserEarnedReward() {
+                        PartnerLogController.log(DID_REWARD)
+                        listener.onPartnerAdRewarded(
+                            PartnerAd(
+                                ad = rewardedAd,
+                                details = Collections.emptyMap(),
+                                request = request,
+                            ),
                         )
-                    )
-                )
-            }
+                    }
 
-            override fun onAdNotFilled() {
-                PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
-                resumeOnce(
-                    Result.failure(
-                        ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL)
-                    )
-                )
-            }
+                    override fun onAdLoaded() {
+                        PartnerLogController.log(LOAD_SUCCEEDED)
+                        resumeOnce(
+                            Result.success(
+                                PartnerAd(
+                                    ad = rewardedAd,
+                                    details = Collections.emptyMap(),
+                                    request = request,
+                                ),
+                            ),
+                        )
+                    }
 
-            override fun onAdClosed() {
-                PartnerLogController.log(DID_DISMISS)
-                listener.onPartnerAdDismissed(
-                    PartnerAd(
-                        ad = rewardedAd,
-                        details = Collections.emptyMap(),
-                        request = request
-                    ), null
-                )
-            }
+                    override fun onAdNotFilled() {
+                        PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
+                        resumeOnce(
+                            Result.failure(
+                                ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL),
+                            ),
+                        )
+                    }
 
-            override fun onAdRendered() {
-                onRewardedAdShowSuccess()
-            }
+                    override fun onAdClosed() {
+                        PartnerLogController.log(DID_DISMISS)
+                        listener.onPartnerAdDismissed(
+                            PartnerAd(
+                                ad = rewardedAd,
+                                details = Collections.emptyMap(),
+                                request = request,
+                            ),
+                            null,
+                        )
+                    }
 
-            override fun onAdClicked() {
-                PartnerLogController.log(DID_CLICK)
-                listener.onPartnerAdClicked(
-                    PartnerAd(
-                        ad = rewardedAd,
-                        details = Collections.emptyMap(),
-                        request = request
-                    )
-                )
-            }
+                    override fun onAdRendered() {
+                        onRewardedAdShowSuccess()
+                    }
 
-            override fun onAdExpired() {
-                PartnerLogController.log(DID_EXPIRE)
-                listener.onPartnerAdExpired(
-                    PartnerAd(
-                        ad = rewardedAd,
-                        details = Collections.emptyMap(),
-                        request = request,
-                    )
-                )
-            }
+                    override fun onAdClicked() {
+                        PartnerLogController.log(DID_CLICK)
+                        listener.onPartnerAdClicked(
+                            PartnerAd(
+                                ad = rewardedAd,
+                                details = Collections.emptyMap(),
+                                request = request,
+                            ),
+                        )
+                    }
 
-            override fun onAdError(error: AdError) {
-                PartnerLogController.log(LOAD_FAILED, error.errorMessage)
-                resumeOnce(
-                    Result.failure(
-                        ChartboostMediationAdException(getChartboostMediationError(error))
-                    )
-                )
-            }
-        })
+                    override fun onAdExpired() {
+                        PartnerLogController.log(DID_EXPIRE)
+                        listener.onPartnerAdExpired(
+                            PartnerAd(
+                                ad = rewardedAd,
+                                details = Collections.emptyMap(),
+                                request = request,
+                            ),
+                        )
+                    }
 
-        rewardedAd.loadAdFromBiddingToken(request.adm)
-    }
+                    override fun onAdError(error: AdError) {
+                        PartnerLogController.log(LOAD_FAILED, error.errorMessage)
+                        resumeOnce(
+                            Result.failure(
+                                ChartboostMediationAdException(getChartboostMediationError(error)),
+                            ),
+                        )
+                    }
+                },
+            )
+
+            rewardedAd.loadAdFromBiddingToken(request.adm)
+        }
 
     /**
      * Attempt to show a MobileFuse fullscreen ad.
@@ -682,10 +716,11 @@ class MobileFuseAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    private fun showFullscreenAd(
-        partnerAd: PartnerAd,
-    ): Result<PartnerAd> {
-        fun showAdIfLoaded(isLoaded: () -> Boolean, showAd: () -> Unit): Result<PartnerAd> {
+    private fun showFullscreenAd(partnerAd: PartnerAd): Result<PartnerAd> {
+        fun showAdIfLoaded(
+            isLoaded: () -> Boolean,
+            showAd: () -> Unit,
+        ): Result<PartnerAd> {
             return if (isLoaded()) {
                 showAd()
                 Result.success(partnerAd)
@@ -707,7 +742,7 @@ class MobileFuseAdapter : PartnerAdapter {
             else -> {
                 PartnerLogController.log(
                     SHOW_FAILED,
-                    "Ad is not an instance of MobileFuseInterstitialAd or MobileFuseRewardedAd."
+                    "Ad is not an instance of MobileFuseInterstitialAd or MobileFuseRewardedAd.",
                 )
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
             }
@@ -749,11 +784,12 @@ class MobileFuseAdapter : PartnerAdapter {
      *
      * @return The corresponding [ChartboostMediationError].
      */
-    private fun getChartboostMediationError(error: AdError) = when (error) {
-        AD_ALREADY_LOADED -> ChartboostMediationError.CM_LOAD_FAILURE_LOAD_IN_PROGRESS
-        AD_ALREADY_RENDERED -> ChartboostMediationError.CM_SHOW_FAILURE_SHOW_IN_PROGRESS
-        AD_RUNTIME_ERROR -> ChartboostMediationError.CM_SHOW_FAILURE_UNKNOWN
-        AD_LOAD_ERROR -> ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN
-        else -> ChartboostMediationError.CM_PARTNER_ERROR
-    }
+    private fun getChartboostMediationError(error: AdError) =
+        when (error) {
+            AD_ALREADY_LOADED -> ChartboostMediationError.CM_LOAD_FAILURE_LOAD_IN_PROGRESS
+            AD_ALREADY_RENDERED -> ChartboostMediationError.CM_SHOW_FAILURE_SHOW_IN_PROGRESS
+            AD_RUNTIME_ERROR -> ChartboostMediationError.CM_SHOW_FAILURE_UNKNOWN
+            AD_LOAD_ERROR -> ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN
+            else -> ChartboostMediationError.CM_PARTNER_ERROR
+        }
 }
