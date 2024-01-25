@@ -23,6 +23,7 @@ import com.mobilefuse.sdk.internal.MobileFuseBiddingTokenRequest
 import com.mobilefuse.sdk.internal.TokenGeneratorListener
 import com.mobilefuse.sdk.privacy.MobileFusePrivacyPreferences
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.lang.ref.WeakReference
 import java.util.*
 import kotlin.coroutines.resume
 
@@ -337,9 +338,15 @@ class MobileFuseAdapter : PartnerAdapter {
         PartnerLogController.log(SHOW_STARTED)
 
         return suspendCancellableCoroutine { continuation ->
+            val weakContinuationRef = WeakReference(continuation)
+
             fun resumeOnce(result: Result<PartnerAd>) {
-                if (continuation.isActive) {
-                    continuation.resume(result)
+                weakContinuationRef.get()?.let {
+                    if (it.isActive) {
+                        it.resume(result)
+                    }
+                } ?: run {
+                    PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation once. Continuation is null.")
                 }
             }
 
