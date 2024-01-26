@@ -673,6 +673,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 PartnerLogController.log(LOAD_FAILED, "Unable to resume continuation. Continuation is null.")
             }
         }
+
         override fun onAdLoaded() {
             PartnerLogController.log(LOAD_SUCCEEDED)
             resumeOnce(
@@ -767,6 +768,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 PartnerLogController.log(LOAD_FAILED, "Unable to resume continuation. Continuation is null.")
             }
         }
+
         override fun onUserEarnedReward() {
             PartnerLogController.log(DID_REWARD)
             listener.onPartnerAdRewarded(
