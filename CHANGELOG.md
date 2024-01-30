@@ -6,6 +6,9 @@ Adapters are compatible with any Chartboost Mediation SDK version within that ma
 ### 4.1.7.1.0
 - This version of the adapter has been certified with MobileFuse SDK Core 1.7.1.
 
+### 4.1.7.0.1
+- Fix memory leaks that could occur when fullscreen ads are shown from an `Activity`.
+
 ### 4.1.7.0.0
 - This version of the adapter has been certified with MobileFuse SDK Core 1.7.0.
 
