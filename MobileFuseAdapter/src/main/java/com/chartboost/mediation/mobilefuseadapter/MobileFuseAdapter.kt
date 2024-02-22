@@ -1,6 +1,6 @@
 /*
  * Copyright 2023-2024 Chartboost, Inc.
- * 
+ *
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file.
  */
@@ -9,10 +9,10 @@ package com.chartboost.mediation.mobilefuseadapter
 
 import android.content.Context
 import android.util.Size
-import com.chartboost.heliumsdk.domain.*
-import com.chartboost.heliumsdk.domain.ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-import com.chartboost.heliumsdk.utils.PartnerLogController
-import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
+import com.chartboost.chartboostmediationsdk.domain.*
+import com.chartboost.chartboostmediationsdk.domain.ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.*
 import com.mobilefuse.sdk.*
 import com.mobilefuse.sdk.AdError.*
 import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize
@@ -25,7 +25,6 @@ import com.mobilefuse.sdk.privacy.MobileFusePrivacyPreferences
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.ref.WeakReference
-import java.util.*
 import kotlin.coroutines.resume
 
 class MobileFuseAdapter : PartnerAdapter {
@@ -576,7 +575,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     request = request,
                     listener = listener,
                     rewardedAd = rewardedAd,
-                )
+                ),
             )
 
             rewardedAd.loadAdFromBiddingToken(request.adm)
@@ -663,7 +662,7 @@ class MobileFuseAdapter : PartnerAdapter {
         private val request: PartnerAdLoadRequest,
         private val listener: PartnerAdListener,
         private val interstitialAd: MobileFuseInterstitialAd,
-    ): MobileFuseInterstitialAd.Listener {
+    ) : MobileFuseInterstitialAd.Listener {
         fun resumeOnce(result: Result<PartnerAd>) {
             continuationRef.get()?.let {
                 if (it.isActive) {
@@ -758,7 +757,7 @@ class MobileFuseAdapter : PartnerAdapter {
         private val request: PartnerAdLoadRequest,
         private val listener: PartnerAdListener,
         private val rewardedAd: MobileFuseRewardedAd,
-    ): MobileFuseRewardedAd.Listener {
+    ) : MobileFuseRewardedAd.Listener {
         fun resumeOnce(result: Result<PartnerAd>) {
             continuationRef.get()?.let {
                 if (it.isActive) {
