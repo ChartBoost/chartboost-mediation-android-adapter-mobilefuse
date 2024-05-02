@@ -31,27 +31,6 @@ import kotlin.coroutines.resume
 class MobileFuseAdapter : PartnerAdapter {
     companion object {
         /**
-         * Test mode flag that can optionally be set to true to enable test ads. It can be set at any
-         * time and it will take effect for the next ad request. Remember to set this to false in
-         * production.
-         */
-        var testMode = false
-            set(value) {
-                field = value
-                MobileFuseSettings.setTestMode(value)
-                PartnerLogController.log(
-                    CUSTOM,
-                    "MobileFuse test mode is ${
-                        if (value) {
-                            "enabled. Remember to disable it before publishing."
-                        } else {
-                            "disabled."
-                        }
-                    }",
-                )
-            }
-
-        /**
          * The MobileFuse bidding token key.
          */
         private const val TOKEN_KEY = "signal"
@@ -84,42 +63,14 @@ class MobileFuseAdapter : PartnerAdapter {
     }
 
     /**
+     * The MobileFuse adapter configuration.
+     */
+    override var configuration: PartnerAdapterConfiguration = MobileFuseAdapterConfiguration
+
+    /**
      * The MobileFuse privacy preferences builder.
      */
     private var privacyBuilder = MobileFusePrivacyPreferences.Builder()
-
-    /**
-     * Get the MobileFuse SDK version.
-     */
-    override val partnerSdkVersion: String
-        get() = MobileFuse.getSdkVersion()
-
-    /**
-     * Get the MobileFuse adapter version.
-     *
-     * You may version the adapter using any preferred convention, but it is recommended to apply the
-     * following format if the adapter will be published by Chartboost Mediation:
-     *
-     * Chartboost Mediation.Partner.Adapter
-     *
-     * "Chartboost Mediation" represents the Chartboost Mediation SDK’s major version that is compatible with this adapter. This must be 1 digit.
-     * "Partner" represents the partner SDK’s major.minor.patch.x (where x is optional) version that is compatible with this adapter. This can be 3-4 digits.
-     * "Adapter" represents this adapter’s version (starting with 0), which resets to 0 when the partner SDK’s version changes. This must be 1 digit.
-     */
-    override val adapterVersion: String
-        get() = BuildConfig.CHARTBOOST_MEDIATION_MOBILEFUSE_ADAPTER_VERSION
-
-    /**
-     * Get the partner name for internal uses.
-     */
-    override val partnerId: String
-        get() = "mobilefuse"
-
-    /**
-     * Get the partner name for external uses.
-     */
-    override val partnerDisplayName: String
-        get() = "MobileFuse"
 
     /**
      * Initialize the MobileFuse SDK so that it is ready to request ads.
@@ -278,7 +229,7 @@ class MobileFuseAdapter : PartnerAdapter {
             MobileFuseBiddingTokenProvider.getToken(
                 MobileFuseBiddingTokenRequest(
                     privacyPreferences = privacyBuilder.build(),
-                    isTestMode = testMode,
+                    isTestMode = MobileFuseAdapterConfiguration.testMode,
                 ),
                 context,
                 listener,
