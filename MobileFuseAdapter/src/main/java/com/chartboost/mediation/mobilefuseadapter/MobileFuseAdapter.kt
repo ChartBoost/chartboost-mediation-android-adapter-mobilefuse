@@ -11,7 +11,7 @@ import android.app.Activity
 import android.content.Context
 import android.util.Size
 import com.chartboost.chartboostmediationsdk.domain.*
-import com.chartboost.chartboostmediationsdk.domain.ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
+import com.chartboost.chartboostmediationsdk.domain.ChartboostMediationError.LoadError.NoFill
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.*
 import com.mobilefuse.sdk.*
@@ -44,11 +44,11 @@ class MobileFuseAdapter : PartnerAdapter {
          */
         internal fun getChartboostMediationError(error: AdError) =
             when (error) {
-                AD_ALREADY_LOADED -> ChartboostMediationError.CM_LOAD_FAILURE_LOAD_IN_PROGRESS
-                AD_ALREADY_RENDERED -> ChartboostMediationError.CM_SHOW_FAILURE_SHOW_IN_PROGRESS
-                AD_RUNTIME_ERROR -> ChartboostMediationError.CM_SHOW_FAILURE_UNKNOWN
-                AD_LOAD_ERROR -> ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN
-                else -> ChartboostMediationError.CM_PARTNER_ERROR
+                AD_ALREADY_LOADED -> ChartboostMediationError.LoadError.LoadInProgress
+                AD_ALREADY_RENDERED -> ChartboostMediationError.ShowError.ShowInProgress
+                AD_RUNTIME_ERROR -> ChartboostMediationError.ShowError.Unknown
+                AD_LOAD_ERROR -> ChartboostMediationError.LoadError.Unknown
+                else -> ChartboostMediationError.OtherError.PartnerError
             }
 
         /**
@@ -103,7 +103,7 @@ class MobileFuseAdapter : PartnerAdapter {
                         PartnerLogController.log(SETUP_FAILED)
                         resumeOnce(
                             Result.failure(
-                                ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN),
+                                ChartboostMediationAdException(ChartboostMediationError.InitializationError.Unknown),
                             ),
                         )
                     }
@@ -285,7 +285,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     )
                 } else {
                     PartnerLogController.log(LOAD_FAILED)
-                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.UnsupportedAdFormat))
                 }
             }
         }
@@ -345,7 +345,7 @@ class MobileFuseAdapter : PartnerAdapter {
                             showFullscreenAd(partnerAd)
                         } else {
                             PartnerLogController.log(SHOW_FAILED)
-                            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
+                            Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.UnsupportedAdFormat))
                         }
                     }
                 }
@@ -425,8 +425,8 @@ class MobileFuseAdapter : PartnerAdapter {
                     }
 
                     override fun onAdNotFilled() {
-                        PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
-                        resumeOnce(Result.failure(ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL)))
+                        PartnerLogController.log(LOAD_FAILED, NoFill.cause.toString())
+                        resumeOnce(Result.failure(ChartboostMediationAdException(NoFill)))
                     }
 
                     override fun onAdRendered() {
@@ -550,14 +550,14 @@ class MobileFuseAdapter : PartnerAdapter {
                 Result.success(partnerAd)
             } else {
                 PartnerLogController.log(SHOW_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_READY))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.AdNotReady))
             }
         }
 
         return when (val ad = partnerAd.ad) {
             null -> {
                 PartnerLogController.log(SHOW_FAILED, "Ad is null.")
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_FOUND))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.AdNotFound))
             }
 
             is MobileFuseInterstitialAd -> showAdIfLoaded(ad::isLoaded, ad::showAd)
@@ -568,7 +568,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     SHOW_FAILED,
                     "Ad is not an instance of MobileFuseInterstitialAd or MobileFuseRewardedAd.",
                 )
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.WrongResourceType))
             }
         }
     }
@@ -596,7 +596,7 @@ class MobileFuseAdapter : PartnerAdapter {
 
             else -> {
                 PartnerLogController.log(INVALIDATE_FAILED, "Ad is not an MobileFuseBannerAd.")
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_WRONG_RESOURCE_TYPE))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.InvalidateError.WrongResourceType))
             }
         }
     }
@@ -639,10 +639,10 @@ class MobileFuseAdapter : PartnerAdapter {
         }
 
         override fun onAdNotFilled() {
-            PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
+            PartnerLogController.log(LOAD_FAILED, NoFill.cause.toString())
             resumeOnce(
                 Result.failure(
-                    ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL),
+                    ChartboostMediationAdException(NoFill),
                 ),
             )
         }
@@ -745,10 +745,10 @@ class MobileFuseAdapter : PartnerAdapter {
         }
 
         override fun onAdNotFilled() {
-            PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
+            PartnerLogController.log(LOAD_FAILED, NoFill.cause.toString())
             resumeOnce(
                 Result.failure(
-                    ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL),
+                    ChartboostMediationAdException(NoFill),
                 ),
             )
         }
