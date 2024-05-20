@@ -45,14 +45,14 @@ object MobileFuseAdapterConfiguration : PartnerAdapterConfiguration {
             field = value
             MobileFuseSettings.setTestMode(value)
             PartnerLogController.log(
-                    PartnerLogController.PartnerAdapterEvents.CUSTOM,
-                    "MobileFuse test mode is ${
-                        if (value) {
-                            "enabled. Remember to disable it before publishing."
-                        } else {
-                            "disabled."
-                        }
-                    }",
+                PartnerLogController.PartnerAdapterEvents.CUSTOM,
+                "MobileFuse test mode is ${
+                    if (value) {
+                        "enabled. Remember to disable it before publishing."
+                    } else {
+                        "disabled."
+                    }
+                }",
             )
         }
 }
