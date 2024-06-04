@@ -338,7 +338,7 @@ class MobileFuseAdapter : PartnerAdapter {
     override fun setConsents(
         context: Context,
         consents: Map<ConsentKey, ConsentValue>,
-        modifiedKeys: Set<ConsentKey>
+        modifiedKeys: Set<ConsentKey>,
     ) {
         consents[ConsentKeys.GPP]?.let {
             privacyBuilder.setGppConsentString(it)
