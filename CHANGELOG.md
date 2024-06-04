@@ -5,8 +5,6 @@ Adapters are compatible with any Chartboost Mediation SDK version within that ma
 
 ### 5.1.7.4.0
 - This version of the adapter has been certified with MobileFuse SDK Core 1.7.4.
-
-### 5.1.7.1.0
 - This version of the adapter supports Chartboost Mediation SDK version 5.+.
 
 ### 4.1.7.1.0
