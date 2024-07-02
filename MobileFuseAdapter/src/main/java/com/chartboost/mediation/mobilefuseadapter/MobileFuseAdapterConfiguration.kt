@@ -40,7 +40,8 @@ object MobileFuseAdapterConfiguration : PartnerAdapterConfiguration {
      * time and it will take effect for the next ad request. Remember to set this to false in
      * production.
      */
-    var testMode = false
+    var testMode = MobileFuseSettings.isTestMode()
+        get() = MobileFuseSettings.isTestMode()
         set(value) {
             field = value
             MobileFuseSettings.setTestMode(value)
