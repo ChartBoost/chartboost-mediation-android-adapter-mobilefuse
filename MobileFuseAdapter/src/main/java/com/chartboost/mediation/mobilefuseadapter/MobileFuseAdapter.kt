@@ -343,10 +343,16 @@ class MobileFuseAdapter : PartnerAdapter {
         consents[ConsentKeys.GPP]?.let {
             privacyBuilder.setGppConsentString(it)
         }
+
+        consents[ConsentKeys.TCF]?.let {
+            privacyBuilder.setIabConsentString(it)
+        }
+
         consents[ConsentKeys.USP]?.let {
             PartnerLogController.log(CUSTOM, "${PartnerLogController.PRIVACY_TAG} USP set to $it")
             privacyBuilder.setUsPrivacyConsentString(it)
         }
+
         MobileFuse.setPrivacyPreferences(privacyBuilder.build())
     }
 
