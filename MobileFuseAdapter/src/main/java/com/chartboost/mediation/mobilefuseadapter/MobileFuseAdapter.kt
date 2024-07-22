@@ -10,6 +10,7 @@ package com.chartboost.mediation.mobilefuseadapter
 import android.app.Activity
 import android.content.Context
 import android.util.Size
+import com.chartboost.chartboostmediationsdk.ad.ChartboostMediationBannerAdView.ChartboostMediationBannerSize.Companion.asSize
 import com.chartboost.chartboostmediationsdk.domain.*
 import com.chartboost.chartboostmediationsdk.domain.ChartboostMediationError.LoadError.NoFill
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
@@ -38,16 +39,21 @@ import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerA
 import com.chartboost.core.consent.ConsentKey
 import com.chartboost.core.consent.ConsentKeys
 import com.chartboost.core.consent.ConsentValue
-import com.mobilefuse.sdk.*
+import com.mobilefuse.sdk.AdError
 import com.mobilefuse.sdk.AdError.AD_ALREADY_LOADED
 import com.mobilefuse.sdk.AdError.AD_ALREADY_RENDERED
 import com.mobilefuse.sdk.AdError.AD_LOAD_ERROR
 import com.mobilefuse.sdk.AdError.AD_RUNTIME_ERROR
+import com.mobilefuse.sdk.MobileFuse
+import com.mobilefuse.sdk.MobileFuseBannerAd
 import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize
 import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize.BANNER_300x250
 import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize.BANNER_320x50
 import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize.BANNER_728x90
 import com.mobilefuse.sdk.MobileFuseBannerAd.Listener
+import com.mobilefuse.sdk.MobileFuseInterstitialAd
+import com.mobilefuse.sdk.MobileFuseRewardedAd
+import com.mobilefuse.sdk.SdkInitListener
 import com.mobilefuse.sdk.internal.MobileFuseBiddingTokenProvider
 import com.mobilefuse.sdk.internal.MobileFuseBiddingTokenRequest
 import com.mobilefuse.sdk.internal.TokenGeneratorListener
@@ -375,7 +381,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 MobileFuseBannerAd(
                     context,
                     request.partnerPlacement,
-                    getMobileFuseBannerAdSize(request.bannerSize?.size),
+                    getMobileFuseBannerAdSize(request.bannerSize?.asSize()),
                 )
 
             val partnerAd =
