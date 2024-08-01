@@ -1,23 +1,59 @@
 /*
  * Copyright 2023-2024 Chartboost, Inc.
- * 
+ *
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file.
  */
 
 package com.chartboost.mediation.mobilefuseadapter
 
+import android.app.Activity
 import android.content.Context
 import android.util.Size
-import com.chartboost.heliumsdk.domain.*
-import com.chartboost.heliumsdk.domain.ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-import com.chartboost.heliumsdk.utils.PartnerLogController
-import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
-import com.mobilefuse.sdk.*
-import com.mobilefuse.sdk.AdError.*
+import com.chartboost.chartboostmediationsdk.ad.ChartboostMediationBannerAdView.ChartboostMediationBannerSize.Companion.asSize
+import com.chartboost.chartboostmediationsdk.domain.*
+import com.chartboost.chartboostmediationsdk.domain.ChartboostMediationError.LoadError.NoFill
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.CUSTOM
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_CLICK
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_DISMISS
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_EXPIRE
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_REWARD
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.LOAD_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.LOAD_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.LOAD_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SETUP_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SETUP_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SETUP_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USER_IS_NOT_UNDERAGE
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USER_IS_UNDERAGE
+import com.chartboost.core.consent.ConsentKey
+import com.chartboost.core.consent.ConsentKeys
+import com.chartboost.core.consent.ConsentValue
+import com.mobilefuse.sdk.AdError
+import com.mobilefuse.sdk.AdError.AD_ALREADY_LOADED
+import com.mobilefuse.sdk.AdError.AD_ALREADY_RENDERED
+import com.mobilefuse.sdk.AdError.AD_LOAD_ERROR
+import com.mobilefuse.sdk.AdError.AD_RUNTIME_ERROR
+import com.mobilefuse.sdk.MobileFuse
+import com.mobilefuse.sdk.MobileFuseBannerAd
 import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize
-import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize.*
+import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize.BANNER_300x250
+import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize.BANNER_320x50
+import com.mobilefuse.sdk.MobileFuseBannerAd.AdSize.BANNER_728x90
 import com.mobilefuse.sdk.MobileFuseBannerAd.Listener
+import com.mobilefuse.sdk.MobileFuseInterstitialAd
+import com.mobilefuse.sdk.MobileFuseRewardedAd
+import com.mobilefuse.sdk.SdkInitListener
 import com.mobilefuse.sdk.internal.MobileFuseBiddingTokenProvider
 import com.mobilefuse.sdk.internal.MobileFuseBiddingTokenRequest
 import com.mobilefuse.sdk.internal.TokenGeneratorListener
@@ -25,32 +61,10 @@ import com.mobilefuse.sdk.privacy.MobileFusePrivacyPreferences
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.ref.WeakReference
-import java.util.*
 import kotlin.coroutines.resume
 
 class MobileFuseAdapter : PartnerAdapter {
     companion object {
-        /**
-         * Test mode flag that can optionally be set to true to enable test ads. It can be set at any
-         * time and it will take effect for the next ad request. Remember to set this to false in
-         * production.
-         */
-        var testMode = false
-            set(value) {
-                field = value
-                MobileFuseSettings.setTestMode(value)
-                PartnerLogController.log(
-                    CUSTOM,
-                    "MobileFuse test mode is ${
-                        if (value) {
-                            "enabled. Remember to disable it before publishing."
-                        } else {
-                            "disabled."
-                        }
-                    }",
-                )
-            }
-
         /**
          * The MobileFuse bidding token key.
          */
@@ -65,11 +79,11 @@ class MobileFuseAdapter : PartnerAdapter {
          */
         internal fun getChartboostMediationError(error: AdError) =
             when (error) {
-                AD_ALREADY_LOADED -> ChartboostMediationError.CM_LOAD_FAILURE_LOAD_IN_PROGRESS
-                AD_ALREADY_RENDERED -> ChartboostMediationError.CM_SHOW_FAILURE_SHOW_IN_PROGRESS
-                AD_RUNTIME_ERROR -> ChartboostMediationError.CM_SHOW_FAILURE_UNKNOWN
-                AD_LOAD_ERROR -> ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN
-                else -> ChartboostMediationError.CM_PARTNER_ERROR
+                AD_ALREADY_LOADED -> ChartboostMediationError.LoadError.LoadInProgress
+                AD_ALREADY_RENDERED -> ChartboostMediationError.ShowError.ShowInProgress
+                AD_RUNTIME_ERROR -> ChartboostMediationError.ShowError.Unknown
+                AD_LOAD_ERROR -> ChartboostMediationError.LoadError.Unknown
+                else -> ChartboostMediationError.OtherError.PartnerError
             }
 
         /**
@@ -84,47 +98,19 @@ class MobileFuseAdapter : PartnerAdapter {
     }
 
     /**
+     * The MobileFuse adapter configuration.
+     */
+    override var configuration: PartnerAdapterConfiguration = MobileFuseAdapterConfiguration
+
+    /**
      * The MobileFuse privacy preferences builder.
      */
     private var privacyBuilder = MobileFusePrivacyPreferences.Builder()
 
     /**
-     * Get the MobileFuse SDK version.
-     */
-    override val partnerSdkVersion: String
-        get() = MobileFuse.getSdkVersion()
-
-    /**
-     * Get the MobileFuse adapter version.
-     *
-     * You may version the adapter using any preferred convention, but it is recommended to apply the
-     * following format if the adapter will be published by Chartboost Mediation:
-     *
-     * Chartboost Mediation.Partner.Adapter
-     *
-     * "Chartboost Mediation" represents the Chartboost Mediation SDK’s major version that is compatible with this adapter. This must be 1 digit.
-     * "Partner" represents the partner SDK’s major.minor.patch.x (where x is optional) version that is compatible with this adapter. This can be 3-4 digits.
-     * "Adapter" represents this adapter’s version (starting with 0), which resets to 0 when the partner SDK’s version changes. This must be 1 digit.
-     */
-    override val adapterVersion: String
-        get() = BuildConfig.CHARTBOOST_MEDIATION_MOBILEFUSE_ADAPTER_VERSION
-
-    /**
-     * Get the partner name for internal uses.
-     */
-    override val partnerId: String
-        get() = "mobilefuse"
-
-    /**
-     * Get the partner name for external uses.
-     */
-    override val partnerDisplayName: String
-        get() = "MobileFuse"
-
-    /**
      * Initialize the MobileFuse SDK so that it is ready to request ads.
      *
-     * @param context The current [Context].
+     * @param context The current [Activity].
      * @param partnerConfiguration Configuration object containing relevant data to initialize MobileFuse.
      *
      * @return Result.success() if the initialization was successful, Result.failure(Exception) otherwise.
@@ -132,11 +118,11 @@ class MobileFuseAdapter : PartnerAdapter {
     override suspend fun setUp(
         context: Context,
         partnerConfiguration: PartnerConfiguration,
-    ): Result<Unit> {
+    ): Result<Map<String, Any>> {
         PartnerLogController.log(SETUP_STARTED)
 
         return suspendCancellableCoroutine { continuation ->
-            fun resumeOnce(result: Result<Unit>) {
+            fun resumeOnce(result: Result<Map<String, Any>>) {
                 if (continuation.isActive) {
                     continuation.resume(result)
                 }
@@ -145,14 +131,15 @@ class MobileFuseAdapter : PartnerAdapter {
             MobileFuse.init(
                 object : SdkInitListener {
                     override fun onInitSuccess() {
-                        resumeOnce(Result.success(PartnerLogController.log(SETUP_SUCCEEDED)))
+                        PartnerLogController.log(SETUP_SUCCEEDED)
+                        resumeOnce(Result.success(emptyMap()))
                     }
 
                     override fun onInitError() {
                         PartnerLogController.log(SETUP_FAILED)
                         resumeOnce(
                             Result.failure(
-                                ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN),
+                                ChartboostMediationAdException(ChartboostMediationError.InitializationError.Unknown),
                             ),
                         )
                     }
@@ -162,81 +149,25 @@ class MobileFuseAdapter : PartnerAdapter {
     }
 
     /**
-     * Notify the MobileFuse SDK of the GDPR applicability and consent status.
-     *
-     * @param context The current [Context].
-     * @param applies True if GDPR applies, false otherwise.
-     * @param gdprConsentStatus The user's GDPR consent status.
-     */
-    override fun setGdpr(
-        context: Context,
-        applies: Boolean?,
-        gdprConsentStatus: GdprConsentStatus,
-    ) {
-        PartnerLogController.log(
-            when (applies) {
-                true -> GDPR_APPLICABLE
-                false -> GDPR_NOT_APPLICABLE
-                else -> GDPR_UNKNOWN
-            },
-        )
-
-        PartnerLogController.log(
-            when (gdprConsentStatus) {
-                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> GDPR_CONSENT_UNKNOWN
-                GdprConsentStatus.GDPR_CONSENT_GRANTED -> GDPR_CONSENT_GRANTED
-                GdprConsentStatus.GDPR_CONSENT_DENIED -> GDPR_CONSENT_DENIED
-            },
-        )
-
-        // Consent setting is a NO-OP as Chartboost Mediation does not support an IAB-compatible privacy consent string
-        // https://docs.mobilefuse.com/docs/android-sdk-data-privacy
-    }
-
-    /**
-     * Save the current CCPA privacy String to be used later.
-     *
-     * @param context The current [Context].
-     * @param hasGrantedCcpaConsent True if the user has granted CCPA consent, false otherwise.
-     * @param privacyString The CCPA privacy String.
-     */
-    override fun setCcpaConsent(
-        context: Context,
-        hasGrantedCcpaConsent: Boolean,
-        privacyString: String,
-    ) {
-        PartnerLogController.log(
-            if (hasGrantedCcpaConsent) {
-                CCPA_CONSENT_GRANTED
-            } else {
-                CCPA_CONSENT_DENIED
-            },
-        )
-
-        // Consent setting is a NO-OP as MobileFuse does not provide an API for CCPA per
-        // https://docs.mobilefuse.com/docs/android-sdk-data-privacy
-    }
-
-    /**
      * Notify MobileFuse of the COPPA subjectivity.
      *
      * @param context The current [Context].
-     * @param isSubjectToCoppa True if the user is subject to COPPA, false otherwise.
+     * @param isUserUnderage True if the user is subject to COPPA, false otherwise.
      */
-    override fun setUserSubjectToCoppa(
+    override fun setIsUserUnderage(
         context: Context,
-        isSubjectToCoppa: Boolean,
+        isUserUnderage: Boolean,
     ) {
         PartnerLogController.log(
-            if (isSubjectToCoppa) {
-                COPPA_SUBJECT
+            if (isUserUnderage) {
+                USER_IS_UNDERAGE
             } else {
-                COPPA_NOT_SUBJECT
+                USER_IS_NOT_UNDERAGE
             },
         )
 
         MobileFuse.setPrivacyPreferences(
-            privacyBuilder.setSubjectToCoppa(isSubjectToCoppa)
+            privacyBuilder.setSubjectToCoppa(isUserUnderage)
                 .build(),
         )
     }
@@ -245,18 +176,18 @@ class MobileFuseAdapter : PartnerAdapter {
      * Get a bid token if network bidding is supported.
      *
      * @param context The current [Context].
-     * @param request The [PreBidRequest] instance containing relevant data for the current bid request.
+     * @param request The [PartnerAdPreBidRequest] instance containing relevant data for the current bid request.
      *
      * @return A Map of biddable token Strings.
      */
     override suspend fun fetchBidderInformation(
         context: Context,
-        request: PreBidRequest,
-    ): Map<String, String> {
+        request: PartnerAdPreBidRequest,
+    ): Result<Map<String, String>> {
         PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
 
         return suspendCancellableCoroutine { continuation ->
-            fun resumeOnce(result: Map<String, String>) {
+            fun resumeOnce(result: Result<Map<String, String>>) {
                 if (continuation.isActive) {
                     continuation.resume(result)
                 }
@@ -266,19 +197,19 @@ class MobileFuseAdapter : PartnerAdapter {
                 object : TokenGeneratorListener {
                     override fun onTokenGenerated(token: String) {
                         PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
-                        resumeOnce(mapOf(TOKEN_KEY to token))
+                        resumeOnce(Result.success(mapOf(TOKEN_KEY to token)))
                     }
 
                     override fun onTokenGenerationFailed(error: String) {
                         PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, error)
-                        resumeOnce(emptyMap())
+                        resumeOnce(Result.success(emptyMap()))
                     }
                 }
 
             MobileFuseBiddingTokenProvider.getToken(
                 MobileFuseBiddingTokenRequest(
                     privacyPreferences = privacyBuilder.build(),
-                    isTestMode = testMode,
+                    isTestMode = MobileFuseAdapterConfiguration.testMode,
                 ),
                 context,
                 listener,
@@ -302,22 +233,22 @@ class MobileFuseAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         PartnerLogController.log(LOAD_STARTED)
 
-        return when (request.format.key) {
-            AdFormat.INTERSTITIAL.key ->
+        return when (request.format) {
+            PartnerAdFormats.INTERSTITIAL ->
                 loadInterstitialAd(
                     context,
                     request,
                     partnerAdListener,
                 )
 
-            AdFormat.REWARDED.key ->
+            PartnerAdFormats.REWARDED, PartnerAdFormats.REWARDED_INTERSTITIAL ->
                 loadRewardedAd(
                     context,
                     request,
                     partnerAdListener,
                 )
 
-            AdFormat.BANNER.key, "adaptive_banner" ->
+            PartnerAdFormats.BANNER ->
                 loadBannerAd(
                     context,
                     request,
@@ -325,17 +256,8 @@ class MobileFuseAdapter : PartnerAdapter {
                 )
 
             else -> {
-                if (request.format.key == "rewarded_interstitial") {
-                    // MobileFuse does not have a specific rewarded interstitial class.
-                    loadRewardedAd(
-                        context,
-                        request,
-                        partnerAdListener,
-                    )
-                } else {
-                    PartnerLogController.log(LOAD_FAILED)
-                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
-                }
+                PartnerLogController.log(LOAD_FAILED)
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.UnsupportedAdFormat))
             }
         }
     }
@@ -343,13 +265,13 @@ class MobileFuseAdapter : PartnerAdapter {
     /**
      * Attempt to show the currently loaded MobileFuse ad.
      *
-     * @param context The current [Context]
+     * @param activity The current [Activity]
      * @param partnerAd The [PartnerAd] object containing the MobileFuse ad to be shown.
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
     override suspend fun show(
-        context: Context,
+        activity: Activity,
         partnerAd: PartnerAd,
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
@@ -368,14 +290,14 @@ class MobileFuseAdapter : PartnerAdapter {
             }
 
             val result =
-                when (partnerAd.request.format.key) {
-                    AdFormat.BANNER.key, "adaptive_banner" -> {
+                when (partnerAd.request.format) {
+                    PartnerAdFormats.BANNER -> {
                         // Banner ads do not have a separate "show" mechanism.
                         PartnerLogController.log(SHOW_SUCCEEDED)
                         Result.success(partnerAd)
                     }
 
-                    AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> {
+                    PartnerAdFormats.INTERSTITIAL, PartnerAdFormats.REWARDED, PartnerAdFormats.REWARDED_INTERSTITIAL -> {
                         onInterstitialAdShowSuccess = {
                             PartnerLogController.log(SHOW_SUCCEEDED)
                             resumeOnce(Result.success(partnerAd))
@@ -390,12 +312,8 @@ class MobileFuseAdapter : PartnerAdapter {
                     }
 
                     else -> {
-                        if (partnerAd.request.format.key == "rewarded_interstitial") {
-                            showFullscreenAd(partnerAd)
-                        } else {
-                            PartnerLogController.log(SHOW_FAILED)
-                            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
-                        }
+                        PartnerLogController.log(SHOW_FAILED)
+                        Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.UnsupportedAdFormat))
                     }
                 }
 
@@ -414,13 +332,34 @@ class MobileFuseAdapter : PartnerAdapter {
         PartnerLogController.log(INVALIDATE_STARTED)
 
         // Only invalidate banners as there are no explicit methods to invalidate the other formats.
-        return when (partnerAd.request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> destroyBannerAd(partnerAd)
+        return when (partnerAd.request.format) {
+            PartnerAdFormats.BANNER -> destroyBannerAd(partnerAd)
             else -> {
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
             }
         }
+    }
+
+    override fun setConsents(
+        context: Context,
+        consents: Map<ConsentKey, ConsentValue>,
+        modifiedKeys: Set<ConsentKey>,
+    ) {
+        consents[ConsentKeys.GPP]?.let {
+            privacyBuilder.setGppConsentString(it)
+        }
+
+        consents[ConsentKeys.TCF]?.let {
+            privacyBuilder.setIabConsentString(it)
+        }
+
+        consents[ConsentKeys.USP]?.let {
+            PartnerLogController.log(CUSTOM, "${PartnerLogController.PRIVACY_TAG} USP set to $it")
+            privacyBuilder.setUsPrivacyConsentString(it)
+        }
+
+        MobileFuse.setPrivacyPreferences(privacyBuilder.build())
     }
 
     /**
@@ -442,7 +381,7 @@ class MobileFuseAdapter : PartnerAdapter {
                 MobileFuseBannerAd(
                     context,
                     request.partnerPlacement,
-                    getMobileFuseBannerAdSize(request.size),
+                    getMobileFuseBannerAdSize(request.bannerSize?.asSize()),
                 )
 
             val partnerAd =
@@ -474,8 +413,8 @@ class MobileFuseAdapter : PartnerAdapter {
                     }
 
                     override fun onAdNotFilled() {
-                        PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
-                        resumeOnce(Result.failure(ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL)))
+                        PartnerLogController.log(LOAD_FAILED, NoFill.cause.toString())
+                        resumeOnce(Result.failure(ChartboostMediationAdException(NoFill)))
                     }
 
                     override fun onAdRendered() {
@@ -576,7 +515,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     request = request,
                     listener = listener,
                     rewardedAd = rewardedAd,
-                )
+                ),
             )
 
             rewardedAd.loadAdFromBiddingToken(request.adm)
@@ -599,14 +538,14 @@ class MobileFuseAdapter : PartnerAdapter {
                 Result.success(partnerAd)
             } else {
                 PartnerLogController.log(SHOW_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_READY))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.AdNotReady))
             }
         }
 
         return when (val ad = partnerAd.ad) {
             null -> {
                 PartnerLogController.log(SHOW_FAILED, "Ad is null.")
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_FOUND))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.AdNotFound))
             }
 
             is MobileFuseInterstitialAd -> showAdIfLoaded(ad::isLoaded, ad::showAd)
@@ -617,7 +556,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     SHOW_FAILED,
                     "Ad is not an instance of MobileFuseInterstitialAd or MobileFuseRewardedAd.",
                 )
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.WrongResourceType))
             }
         }
     }
@@ -645,7 +584,7 @@ class MobileFuseAdapter : PartnerAdapter {
 
             else -> {
                 PartnerLogController.log(INVALIDATE_FAILED, "Ad is not an MobileFuseBannerAd.")
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_WRONG_RESOURCE_TYPE))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.InvalidateError.WrongResourceType))
             }
         }
     }
@@ -663,7 +602,7 @@ class MobileFuseAdapter : PartnerAdapter {
         private val request: PartnerAdLoadRequest,
         private val listener: PartnerAdListener,
         private val interstitialAd: MobileFuseInterstitialAd,
-    ): MobileFuseInterstitialAd.Listener {
+    ) : MobileFuseInterstitialAd.Listener {
         fun resumeOnce(result: Result<PartnerAd>) {
             continuationRef.get()?.let {
                 if (it.isActive) {
@@ -688,10 +627,10 @@ class MobileFuseAdapter : PartnerAdapter {
         }
 
         override fun onAdNotFilled() {
-            PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
+            PartnerLogController.log(LOAD_FAILED, NoFill.cause.toString())
             resumeOnce(
                 Result.failure(
-                    ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL),
+                    ChartboostMediationAdException(NoFill),
                 ),
             )
         }
@@ -758,7 +697,7 @@ class MobileFuseAdapter : PartnerAdapter {
         private val request: PartnerAdLoadRequest,
         private val listener: PartnerAdListener,
         private val rewardedAd: MobileFuseRewardedAd,
-    ): MobileFuseRewardedAd.Listener {
+    ) : MobileFuseRewardedAd.Listener {
         fun resumeOnce(result: Result<PartnerAd>) {
             continuationRef.get()?.let {
                 if (it.isActive) {
@@ -794,10 +733,10 @@ class MobileFuseAdapter : PartnerAdapter {
         }
 
         override fun onAdNotFilled() {
-            PartnerLogController.log(LOAD_FAILED, CM_LOAD_FAILURE_NO_FILL.cause)
+            PartnerLogController.log(LOAD_FAILED, NoFill.cause.toString())
             resumeOnce(
                 Result.failure(
-                    ChartboostMediationAdException(CM_LOAD_FAILURE_NO_FILL),
+                    ChartboostMediationAdException(NoFill),
                 ),
             )
         }
