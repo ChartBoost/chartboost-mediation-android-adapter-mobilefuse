@@ -3,7 +3,12 @@
 Note the first digit of every adapter version corresponds to the major version of the Chartboost Mediation SDK compatible with that adapter. 
 Adapters are compatible with any Chartboost Mediation SDK version within that major version.
 
+All official releases can be found on this repository's [releases page](https://github.com/ChartBoost/chartboost-mediation-android-adapter-mobilefuse/releases).
+
 ### 5.1.7.6.0
+- This version of the adapter has been certified with MobileFuse SDK 1.7.6.
+
+### 4.1.7.6.0
 - This version of the adapter has been certified with MobileFuse SDK 1.7.6.
 
 ### 5.1.7.5.0
