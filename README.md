@@ -13,7 +13,7 @@ The Chartboost Mediation MobileFuse adapter mediates MobileFuse SDK Core via the
 
 In your `build.gradle`, add the following entry:
 ```
-    implementation "com.chartboost:chartboost-mediation-adapter-mobilefuse:5.1.9.0.0"
+    implementation "com.chartboost:chartboost-mediation-adapter-mobilefuse:5.1.9.1.0"
 ```
 
 ## Contributions
