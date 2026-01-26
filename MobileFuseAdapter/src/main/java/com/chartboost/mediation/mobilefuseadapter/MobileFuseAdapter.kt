@@ -375,8 +375,14 @@ class MobileFuseAdapter : PartnerAdapter {
         context: Context,
         request: PartnerAdLoadRequest,
         listener: PartnerAdListener,
-    ): Result<PartnerAd> =
-        suspendCancellableCoroutine { continuation ->
+    ): Result<PartnerAd> {
+        val adm = request.adm
+        if (adm.isNullOrEmpty()) {
+            PartnerLogController.log(LOAD_FAILED, ChartboostMediationError.LoadError.InvalidAdMarkup.cause.toString())
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.InvalidAdMarkup))
+        }
+
+        return suspendCancellableCoroutine { continuation ->
             val bannerAd =
                 MobileFuseBannerAd(
                     context,
@@ -432,7 +438,7 @@ class MobileFuseAdapter : PartnerAdapter {
                     }
 
                     override fun onAdError(adError: AdError) {
-                        PartnerLogController.log(LOAD_FAILED, adError.errorMessage)
+                        PartnerLogController.log(LOAD_FAILED, adError.errorMessage ?: "")
                         resumeOnce(
                             Result.failure(
                                 ChartboostMediationAdException(getChartboostMediationError(adError)),
@@ -442,8 +448,9 @@ class MobileFuseAdapter : PartnerAdapter {
                 },
             )
 
-            bannerAd.loadAdFromBiddingToken(request.adm)
+            bannerAd.loadAdFromBiddingToken(adm)
         }
+    }
 
     /**
      * Find the most appropriate MobileFuse ad size for the given screen area based on height.
@@ -476,8 +483,14 @@ class MobileFuseAdapter : PartnerAdapter {
         context: Context,
         request: PartnerAdLoadRequest,
         listener: PartnerAdListener,
-    ): Result<PartnerAd> =
-        suspendCancellableCoroutine { continuation ->
+    ): Result<PartnerAd> {
+        val adm = request.adm
+        if (adm.isNullOrEmpty()) {
+            PartnerLogController.log(LOAD_FAILED, ChartboostMediationError.LoadError.InvalidAdMarkup.cause.toString())
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.InvalidAdMarkup))
+        }
+
+        return suspendCancellableCoroutine { continuation ->
             val interstitialAd = MobileFuseInterstitialAd(context, request.partnerPlacement)
 
             interstitialAd.setListener(
@@ -489,8 +502,9 @@ class MobileFuseAdapter : PartnerAdapter {
                 ),
             )
 
-            interstitialAd.loadAdFromBiddingToken(request.adm)
+            interstitialAd.loadAdFromBiddingToken(adm)
         }
+    }
 
     /**
      * Attempt to load an MobileFuse rewarded ad.
@@ -505,8 +519,14 @@ class MobileFuseAdapter : PartnerAdapter {
         context: Context,
         request: PartnerAdLoadRequest,
         listener: PartnerAdListener,
-    ): Result<PartnerAd> =
-        suspendCancellableCoroutine { continuation ->
+    ): Result<PartnerAd> {
+        val adm = request.adm
+        if (adm.isNullOrEmpty()) {
+            PartnerLogController.log(LOAD_FAILED, ChartboostMediationError.LoadError.InvalidAdMarkup.cause.toString())
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.InvalidAdMarkup))
+        }
+
+        return suspendCancellableCoroutine { continuation ->
             val rewardedAd = MobileFuseRewardedAd(context, request.partnerPlacement)
 
             rewardedAd.setListener(
@@ -518,8 +538,9 @@ class MobileFuseAdapter : PartnerAdapter {
                 ),
             )
 
-            rewardedAd.loadAdFromBiddingToken(request.adm)
+            rewardedAd.loadAdFromBiddingToken(adm)
         }
+    }
 
     /**
      * Attempt to show a MobileFuse fullscreen ad.
@@ -548,8 +569,8 @@ class MobileFuseAdapter : PartnerAdapter {
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.AdNotFound))
             }
 
-            is MobileFuseInterstitialAd -> showAdIfLoaded(ad::isLoaded, ad::showAd)
-            is MobileFuseRewardedAd -> showAdIfLoaded(ad::isLoaded, ad::showAd)
+            is MobileFuseInterstitialAd -> showAdIfLoaded({ ad.isLoaded }, ad::showAd)
+            is MobileFuseRewardedAd -> showAdIfLoaded({ ad.isLoaded }, ad::showAd)
 
             else -> {
                 PartnerLogController.log(
@@ -675,7 +696,7 @@ class MobileFuseAdapter : PartnerAdapter {
         }
 
         override fun onAdError(error: AdError) {
-            PartnerLogController.log(LOAD_FAILED, error.errorMessage)
+            PartnerLogController.log(LOAD_FAILED, error.errorMessage ?: "")
             resumeOnce(
                 Result.failure(
                     ChartboostMediationAdException(getChartboostMediationError(error)),
@@ -781,7 +802,7 @@ class MobileFuseAdapter : PartnerAdapter {
         }
 
         override fun onAdError(error: AdError) {
-            PartnerLogController.log(LOAD_FAILED, error.errorMessage)
+            PartnerLogController.log(LOAD_FAILED, error.errorMessage ?: "")
             resumeOnce(
                 Result.failure(
                     ChartboostMediationAdException(getChartboostMediationError(error)),
